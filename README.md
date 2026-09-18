@@ -1,0 +1,1 @@
+# decrypted Chrome extension
