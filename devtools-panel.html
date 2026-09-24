@@ -17,22 +17,35 @@
         background: Canvas;
       }
 
-      button {
-        padding: 7px 14px;
-        color: inherit;
-        background: ButtonFace;
-        border: 1px solid GrayText;
-        border-radius: 4px;
+      label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
         cursor: pointer;
+        user-select: none;
       }
 
-      button:hover {
-        border-color: Highlight;
+      input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        accent-color: Highlight;
       }
+
+      .status {
+        margin-left: 8px;
+        color: GrayText;
+        font-size: 12px;
+      }
+
     </style>
   </head>
   <body>
-    <button id="hook" type="button">hook</button>
+    <label for="auto-hook">
+      <input id="auto-hook" type="checkbox">
+      自动注入 Hook
+    </label>
+    <span id="status" class="status" role="status"></span>
     <script src="devtools-panel.js"></script>
   </body>
 </html>

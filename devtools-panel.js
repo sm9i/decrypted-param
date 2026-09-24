@@ -1,4 +1,23 @@
-const hookButton = document.querySelector("#hook");
+const autoHookCheckbox = document.querySelector("#auto-hook");
+const statusElement = document.querySelector("#status");
+const autoHookStorageKey = "decrypted.autoHookEnabled";
+
+function isAutoHookEnabled() {
+  try {
+    return localStorage.getItem(autoHookStorageKey) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function setAutoHookEnabled(enabled) {
+  try {
+    localStorage.setItem(autoHookStorageKey, String(enabled));
+  } catch {
+    // The panel can still operate for this session if storage is unavailable.
+  }
+  chrome.storage?.local?.set({ autoHookEnabled: enabled });
+}
 
 const installHookCode = () => {
   const subtle = window.crypto?.subtle;
@@ -7,7 +26,7 @@ const installHookCode = () => {
     return;
   }
 
-  const hookVersion = 4;
+  const hookVersion = 5;
   const previousState = window.__subtleEncryptHookState;
   if (previousState?.version === hookVersion) {
     console.info("[decrypted] crypto.subtle.encrypt hook is already installed");
@@ -275,10 +294,36 @@ const installHookCode = () => {
   console.info("[decrypted] crypto.subtle.encrypt hook installed");
 };
 
+const uninstallHookCode = () => {
+  const state = window.__subtleEncryptHookState;
+  if (!state) {
+    console.info("[decrypted] crypto.subtle.encrypt hook is not installed");
+    return;
+  }
+
+  const subtle = window.crypto?.subtle;
+  if (subtle && state.originalEncrypt) {
+    subtle.encrypt = state.originalEncrypt;
+  }
+  if (state.originalFetch) {
+    window.fetch = state.originalFetch;
+  }
+  if (state.xhrPrototype && state.originalXhrOpen) {
+    state.xhrPrototype.open = state.originalXhrOpen;
+  }
+  if (state.xhrPrototype && state.originalXhrSend) {
+    state.xhrPrototype.send = state.originalXhrSend;
+  }
+
+  delete window.__subtleEncryptHookState;
+  delete window.__subtleEncryptHookInstalled;
+  console.info("[decrypted] crypto.subtle.encrypt hook uninstalled");
+};
+
 function evaluateInInspectedPage(code) {
   if (!chrome.devtools?.inspectedWindow) {
     console.error("当前页面不支持 DevTools inspectedWindow API");
-    return;
+    return false;
   }
 
   chrome.devtools.inspectedWindow.eval(
@@ -286,9 +331,39 @@ function evaluateInInspectedPage(code) {
     (_result, exceptionInfo) => {
       if (exceptionInfo?.isException) {
         console.error(exceptionInfo.description || "页面执行 Hook 失败");
+        statusElement.textContent = "注入失败";
+        return;
       }
+      statusElement.textContent = code === installHookCode ? "已注入" : "已清除";
     }
   );
+  return true;
 }
 
-hookButton.addEventListener("click", () => evaluateInInspectedPage(installHookCode));
+function syncHookWithSetting() {
+  if (isAutoHookEnabled()) {
+    evaluateInInspectedPage(installHookCode);
+  } else {
+    evaluateInInspectedPage(uninstallHookCode);
+  }
+}
+
+autoHookCheckbox.checked = isAutoHookEnabled();
+// Keep the new extension storage value in sync with settings from older builds.
+setAutoHookEnabled(autoHookCheckbox.checked);
+autoHookCheckbox.addEventListener("change", () => {
+  const enabled = autoHookCheckbox.checked;
+  setAutoHookEnabled(enabled);
+  syncHookWithSetting();
+});
+
+// The panel may be opened after the page has already loaded. Inject immediately
+// in that case, and inject again after every navigation while enabled.
+syncHookWithSetting();
+if (chrome.devtools?.network?.onNavigated) {
+  chrome.devtools.network.onNavigated.addListener(() => {
+    if (isAutoHookEnabled()) {
+      syncHookWithSetting();
+    }
+  });
+}
