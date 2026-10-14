@@ -38,6 +38,18 @@
         font-size: 12px;
       }
 
+      .description {
+        max-width: 680px;
+        margin: 16px 0 0;
+        color: GrayText;
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      code {
+        color: CanvasText;
+      }
+
     </style>
   </head>
   <body>
@@ -46,6 +58,12 @@
       自动注入 Hook
     </label>
     <span id="status" class="status" role="status"></span>
+    <p class="description">
+      开启后会拦截页面中的 <code>crypto.subtle.encrypt</code> 和
+      <code>CryptoJS.AES.encrypt</code>，在 Console 输出加密前明文与加密结果；
+      同时监听 Fetch/XHR 请求，并尝试匹配密文实际发送到的接口地址。首次开启或更新扩展后，
+      请刷新目标页面，以便在混淆代码初始化前捕获 AES 对象。
+    </p>
     <script src="devtools-panel.js"></script>
   </body>
 </html>
